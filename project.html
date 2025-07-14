@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pollen Classification System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
+    <style>
+        .dropzone {
+            border: 2px dashed #4b5563;
+            transition: all 0.2s ease;
+        }
+        .dropzone.active {
+            border-color: #3b82f6;
+            background-color: #f0f9ff;
+        }
+        #previewImage {
+            max-height: 300px;
+        }
+        .loading-spinner {
+            border-top-color: #3b82f6;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .result-card {
+            transition: all 0.3s ease;
+        }
+        .result-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        .pollen-feature {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <header class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">Pollen Profiler</h1>
+            <p class="text-lg text-gray-600">Automated classification of pollen grains using machine learning</p>
+        </header>
+
+        <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden p-6 mb-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Upload Pollen Image</h2>
+            
+            <div id="dropzone" class="dropzone rounded-lg p-8 text-center cursor-pointer mb-6">
+                <div class="flex flex-col items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <p class="text-gray-600">Drag & drop a microscopic pollen image here or click to select</p>
+                    <p class="text-sm text-gray-500 mt-2">Supports: JPG, PNG (Max 5MB)</p>
+                </div>
+                <input type="file" id="fileInput" accept="image/*" class="hidden">
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-8">
+                <div>
+                    <h3 class="text-lg font-medium text-gray-700 mb-2">Image Preview</h3>
+                    <div class="border border-gray-200 rounded-lg p-4 flex items-center justify-center bg-gray-100 h-64">
+                        <img id="previewImage" class="max-h-full max-w-full hidden rounded-lg" alt="Uploaded pollen image preview">
+                        <p id="previewPlaceholder" class="text-gray-400">Your pollen image will appear here</p>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-medium text-gray-700 mb-2">Pollen Features</h3>
+                    <div class="bg-gray-50 rounded-lg p-4 h-64 overflow-y-auto">
+                        <p class="text-gray-400 italic" id="featurePlaceholder">Features will be extracted and displayed here after upload</p>
+                        <div id="featuresDisplay" class="hidden">
+                            <div class="pollen-feature">
+                                <div class="h-3 w-3 rounded-full bg-blue-500"></div>
+                                <span class="feature-name">Shape:</span>
+                                <span class="feature-value">Spherical</span>
+                            </div>
+                            <div class="pollen-feature">
+                                <div class="h-3 w-3 rounded-full bg-green-500"></div>
+                                <span class="feature-name">Surface:</span>
+                                <span class="feature-value">Smooth</span>
+                            </div>
+                            <div class="pollen-feature">
+                                <div class="h-3 w-3 rounded-full bg-yellow-500"></div>
+                                <span class="feature-name">Size:</span>
+                                <span class="feature-value">25-30μm</span>
+                            </div>
+                            <div class="pollen-feature">
+                                <div class="h-3 w-3 rounded-full bg-purple-500"></div>
+                                <span class="feature-name">Apertures:</span>
+                                <span class="feature-value">3 pores</span>
+                            </div>
+                            <div class="pollen-feature">
+                                <div class="h-3 w-3 rounded-full bg-red-500"></div>
+                                <span class="feature-name">Texture:</span>
+                                <span class="feature-value">Microsculptured</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="loadingSection" class="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden p-6 mb-8 hidden">
+            <div class="flex items-center justify-center space-x-4">
+                <div class="loading-spinner h-8 w-8 border-4 border-gray-300 rounded-full"></div>
+                <p class="text-gray-700">Analyzing pollen characteristics. This may take a moment...</p>
+            </div>
+        </div>
+
+        <div id="resultsSection" class="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden p-6 hidden">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">Classification Results</h2>
+            
+            <div class="flex flex-col md:flex-row gap-4 mb-6">
+                <div class="result-card bg-blue-50 p-4 rounded-lg flex-1">
+                    <h3 class="font-medium text-blue-800 mb-2">Most Likely</h3>
+                    <div class="flex items-center gap-4">
+                        <img src="https://placehold.co/100" id="topMatchImage" alt="Top match pollen species image showing spiky pollen grains" class="w-16 h-16 rounded-lg object-cover">
+                        <div>
+                            <p class="font-bold text-gray-800" id="topMatchName">Pine (Pinus)</p>
+                            <p class="text-gray-600 text-sm" id="topMatchConfidence">94.5% confidence</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="result-card bg-green-50 p-4 rounded-lg flex-1">
+                    <h3 class="font-medium text-green-800 mb-2">Alternative</h3>
+                    <div class="flex items-center gap-4">
+                        <img src="https://placehold.co/100" id="altMatchImage" alt="Alternative pollen species image showing smooth pollen grains" class="w-16 h-16 rounded-lg object-cover">
+                        <div>
+                            <p class="font-bold text-gray-800" id="altMatchName">Birch (Betula)</p>
+                            <p class="text-gray-600 text-sm" id="altMatchConfidence">3.2% confidence</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <h3 class="text-lg font-medium text-gray-700 mb-3">Detailed Analysis</h3>
+            <div class="bg-gray-50 rounded-lg p-4">
+                <p class="text-gray-700 mb-3" id="analysisText">The pollen grain exhibits triporate apertures and a reticulate exine pattern, consistent with Pinaceae family characteristics. The size range (25-30μm) and sculpturing confirm this identification.</p>
+                
+                <div class="mt-4">
+                    <h4 class="font-medium text-gray-700 mb-2">Important Visual Markers</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <div>
+                            <img src="https://placehold.co/200x150" alt="Aperture close-up showing three distinct pores" class="rounded-lg mb-2">
+                            <p class="text-sm text-gray-600 text-center">Triporate apertures</p>
+                        </div>
+                        <div>
+                            <img src="https://placehold.co/200x150" alt="Surface texture showing reticulate pattern" class="rounded-lg mb-2">
+                            <p class="text-sm text-gray-600 text-center">Reticulate exine</p>
+                        </div>
+                        <div>
+                            <img src="https://placehold.co/200x150" alt="Size comparison with scale bar" class="rounded-lg mb-2">
+                            <p class="text-sm text-gray-600 text-center">Size comparison</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden p-6 mt-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">How It Works</h2>
+            <div class="grid md:grid-cols-3 gap-6">
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <div class="flex items-center mb-3">
+                        <div class="bg-blue-100 p-2 rounded-full mr-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9l2-2m0 0l7-7 7 7M5 21v-6a2 2 0 012-2h10a2 2 0 012 2v6" />
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-medium text-gray-800">Upload</h3>
+                    </div>
+                    <p class="text-gray-600">Submit a clear microscopic image of a pollen grain for analysis.</p>
+                </div>
+                <div class="bg-green-50 p-4 rounded-lg">
+                    <div class="flex items-center mb-3">
+                        <div class="bg-green-100 p-2 rounded-full mr-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9h14m0 0V5.5a2.5 2.5 0 00-2.5-2.5H13.5a2.5 2.5 0 00-2.5 2.5V9m0 0v6m0-6h4m0 0H9" />
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-medium text-gray-800">Analyze</h3>
+                    </div>
+                    <p class="text-gray-600">Our ML model processes the image to extract key identifying features.</p>
+                </div>
+                <div class="bg-purple-50 p-4 rounded-lg">
+                    <div class="flex items-center mb-3">
+                        <div class="bg-purple-100 p-2 rounded-full mr-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-medium text-gray-800">Results</h3>
+                    </div>
+                    <p class="text-gray-600">Receive detailed classification results with confidence scores.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-white border-t border-gray-200 mt-12 py-6">
+        <div class="container mx-auto px-4 text-center text-gray-500 text-sm">
+            <p>Pollen Profiler - Automated Pollen Classification System</p>
+            <p class="mt-1">© 2023 All rights reserved</p>
+        </div>
+    </footer>
+
+    <script>
+        // Load ML model (in a real application, this would load a pre-trained model)
+        let model;
+        
+        async function loadModel() {
+            // In a production environment, you would load your actual trained model:
+            // model = await tf.loadGraphModel('path/to/your/model.json');
+            
+            // For this demo, we'll simulate a model with mock data
+            console.log("Simulating model loading...");
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            model = {
+                predict: function(imageTensor) {
+                    return tf.tidy(() => {
+                        // Simulate prediction probabilities for 5 classes
+                        return tf.tensor2d([
+                            [0.945, 0.032, 0.015, 0.006, 0.002] // Mock probabilities
+                        ]);
+                    });
+                }
+            };
+            console.log("Model simulation ready");
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Start loading the model
+            loadModel();
+            
+            // Setup file upload/drop functionality
+            const dropzone = document.getElementById('dropzone');
+            const fileInput = document.getElementById('fileInput');
+            const previewImage = document.getElementById('previewImage');
+            const previewPlaceholder = document.getElementById('previewPlaceholder');
+            const loadingSection = document.getElementById('loadingSection');
+            const resultsSection = document.getElementById('resultsSection');
+            const featurePlaceholder = document.getElementById('featurePlaceholder');
+            const featuresDisplay = document.getElementById('featuresDisplay');
+            
+            // Click on dropzone triggers file input
+            dropzone.addEventListener('click', () => fileInput.click());
+            
+            // Drag and drop events
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropzone.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            // Highlight dropzone when file is dragged over it
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropzone.addEventListener(eventName, highlight, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropzone.addEventListener(eventName, unhighlight, false);
+            });
+            
+            function highlight() {
+                dropzone.classList.add('active');
+            }
+            
+            function unhighlight() {
+                dropzone.classList.remove('active');
+            }
+            
+            // Handle dropped files
+            dropzone.addEventListener('drop', handleDrop, false);
+            
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length) {
+                    handleFiles(files);
+                }
+            }
+            
+            // Handle selected files from file input
+            fileInput.addEventListener('change', function() {
+                if (this.files.length) {
+                    handleFiles(this.files);
+                }
+            });
+            
+            function handleFiles(files) {
+                const file = files[0];
+                if (!file.type.match('image.*')) {
+                    alert('Please select an image file.');
+                    return;
+                }
+                
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('File size should be less than 5MB.');
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewImage.src = e.target.result;
+                    previewImage.classList.remove('hidden');
+                    previewPlaceholder.classList.add('hidden');
+                    featurePlaceholder.classList.add('hidden');
+                    featuresDisplay.classList.remove('hidden');
+                    
+                    // Show loading section
+                    loadingSection.classList.remove('hidden');
+                    resultsSection.classList.add('hidden');
+                    
+                    // Process the image after a delay to simulate analysis
+                    setTimeout(() => {
+                        processImage(previewImage);
+                    }, 2000);
+                };
+                reader.readAsDataURL(file);
+            }
+            
+            function processImage(imageElement) {
+                if (!model) {
+                    alert("Model is still loading. Please wait a moment and try again.");
+                    return;
+                }
+                
+                // In a real application, this would:
+                // 1. Preprocess the image (resize, normalize, etc.)
+                // 2. Use the model to extract features and classify
+                // 3. Display results
+                
+                // Simulate image processing
+                simulateProcessing(imageElement);
+            }
+            
+            function simulateProcessing(imageElement) {
+                console.log("Simulating image processing...");
+                
+                // Hide loading, show results
+                loadingSection.classList.add('hidden');
+                resultsSection.classList.remove('hidden');
+                
+                // Update UI with mock results
+                document.getElementById('topMatchName').textContent = "Pine (Pinus)";
+                document.getElementById('topMatchConfidence').textContent = "94.5% confidence";
+                document.getElementById('altMatchName').textContent = "Birch (Betula)";
+                document.getElementById('altMatchConfidence').textContent = "3.2% confidence";
+                
+                // Update feature display
+                const features = [
+                    { name: "Shape", value: "Spherical" },
+                    { name: "Surface", value: "Reticulate" },
+                    { name: "Size", value: "25-30μm" },
+                    { name: "Apertures", value: "3 pores (triporate)" },
+                    { name: "Texture", value: "Microsculptured" }
+                ];
+                
+                // Update the analysis text
+                document.getElementById('analysisText').textContent = 
+                    "The pollen grain exhibits triporate apertures and a reticulate exine pattern, consistent with Pinaceae family characteristics. " + 
+                    "The size range (25-30μm) and sculpturing confirm this identification.";
+                
+                console.log("Processing simulation complete");
+            }
+        });
+    </script>
+</body>
+</html>
