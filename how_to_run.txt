@@ -1,0 +1,25 @@
+
+# Pollen's Profiling - Setup Guide (VS Code)
+
+1. Install Python 3.10 (done already)
+2. Create a virtual environment (optional but recommended)
+   python -m venv venv
+   venv\Scripts\activate
+
+3. Install dependencies:
+   pip install tensorflow numpy opencv-python streamlit scikit-learn
+
+4. Prepare your dataset as:
+   dataset/
+     ├── Class_1/
+     ├── Class_2/
+     └── Class_3/
+   (Each folder contains pollen images of that class)
+
+5. Train the model:
+   python pollen_model.py
+
+6. Launch the app:
+   streamlit run app.py
+
+Enjoy your AI-powered pollen classifier! 🌼
