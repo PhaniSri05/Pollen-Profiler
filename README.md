@@ -24,7 +24,4 @@ This project demonstrates how web technologies can simulate AI-driven biological
 
 Output
 
-<img width="1920" height="1080" alt="Image" src="https://github.com/user-attachments/assets/6de6e2c5-01cc-4658-9726-bb846c609c8d" />
-<img width="1920" height="1080" alt="Image" src="https://github.com/user-attachments/assets/3db8cc9e-62c3-421f-9676-7611191a8764" />
-<img width="1920" height="1080" alt="Image" src="https://github.com/user-attachments/assets/1cf1cafd-68bf-4961-9c23-f112937badc1" />
-<img width="1920" height="1080" alt="Image" src="https://github.com/user-attachments/assets/4fa04e74-3760-4987-b664-2d7b715a5dfd" />
+
